@@ -1,0 +1,5 @@
+build
+.notes.txt
+.lock-wscript
+.DS_Store
+run
