@@ -3,11 +3,14 @@
 #include <math.h>
 #include "renderer.h"
 
+#include <iostream>
+#include <mapnik/graphics.hpp>
+#include <mapnik/image_util.hpp>
 
 enum
 {
-    width  = 400,
-    height = 300
+    width  = 256,
+    height = 256
 };
 
 
@@ -54,87 +57,64 @@ void draw_line(agg::rasterizer& ras,
     ras.line_to_d(x1 + dx,  y1 - dy);
 }
 
+void png2grid(int step, mapnik::image_32 im) {
+    mapnik::image_data_32 image = im.data();
+    std::ostringstream s("");
+    for (unsigned y = 0; y < image.height(); y=y+step)
+    {
+        unsigned int* row = image.getRow(y);
+        for (unsigned x = 0; x < image.width(); x=x+step)
+        {
+            unsigned value = row[x] & 0xff;
+            s << value;
+        }
+        s << "\n";
+    }
+    std::clog << "grid: " << s.str() << "\n";
+}
+
 
 int main()
 {
     // Allocate the framebuffer
-    unsigned char* buf = new unsigned char[width * height * 3];
+    //unsigned char* buf = new unsigned char[width * height * 3];
 
     // Create the rendering buffer 
-    agg::rendering_buffer rbuf(buf, width, height, width * 3);
+    //agg::rendering_buffer rbuf(buf, width, height, width * 3);
+
+    mapnik::image_32 im(width,height);
+    agg::rendering_buffer rbuf(im.raw_data(),width,height, width * 4);
 
     // Create the renderer and the rasterizer
-    agg::renderer<agg::span_rgb24> ren(rbuf);
+    agg::renderer<agg::span_rgba32> ren(rbuf);
     agg::rasterizer ras;
 
     // Setup the rasterizer
-    ras.gamma(1.3);
+    ras.gamma(0.0);
     ras.filling_rule(agg::fill_even_odd);
 
-    ren.clear(agg::rgba8(255, 255, 255));
+    ren.clear(agg::rgba8(0, 255, 255));
 
-    int i;
+    ras.move_to_d(50,50);
+    ras.line_to_d(50,100);
+    ras.line_to_d(100,100);
+    ras.line_to_d(100,50);
+    ras.render(ren, agg::rgba8(2,125,0,255));
 
-    // Draw random polygons
-    for(i = 0; i < 10; i++)
-    {
-        int n = rand() % 6 + 3;
+    draw_ellipse(ras, 120,120,20,70);
 
-        // Make the polygon. One can call move_to() more than once. 
-        // In this case the rasterizer behaves like Win32 API PolyPolygon().
-        ras.move_to_d(random(-30, rbuf.width() + 30), 
-                      random(-30, rbuf.height() + 30));
+    ras.render(ren, agg::rgba8(4,0,125,255));
 
-        int j;
-        for(j = 1; j < n; j++)
-        {
-            ras.line_to_d(random(-30, rbuf.width() + 30), 
-                          random(-30, rbuf.height() + 30));
-        }
+    ras.move_to_d(200,200);
+    ras.line_to_d(200,300);
+    ras.line_to_d(300,300);
+    ras.line_to_d(300,200);
+    ras.render(ren, agg::rgba8(255,0,0,255));
 
-        // Render
-        ras.render(ren, agg::rgba8(rand() & 0xFF, 
-                                   rand() & 0xFF, 
-                                   rand() & 0xFF, 
-                                   rand() & 0xFF));
-    }
-
-    // Draw random ellipses
-    for(i = 0; i < 50; i++)
-    {
-        draw_ellipse(ras, 
-                     random(-30, rbuf.width()  + 30), 
-                     random(-30, rbuf.height() + 30),
-                     random(3, 50), 
-                     random(3, 50));
-        ras.render(ren, agg::rgba8(rand() & 0x7F, 
-                                   rand() & 0x7F, 
-                                   rand() & 0x7F,
-                                  (rand() & 0x7F) + 100));
-    }
-
-    // Draw random straight lines
-    for(i = 0; i < 20; i++)
-    {
-        draw_line(ras, 
-                  random(-30, rbuf.width()  + 30), 
-                  random(-30, rbuf.height() + 30),
-                  random(-30, rbuf.width()  + 30), 
-                  random(-30, rbuf.height() + 30),
-                  random(0.1, 10));
-
-        ras.render(ren, agg::rgba8(rand() & 0x7F, 
-                                   rand() & 0x7F, 
-                                   rand() & 0x7F));
-    }
-
-    // Write a .ppm file
-    FILE* fd = fopen("agg_test.ppm", "wb");
-    fprintf(fd, "P6\n%d %d\n255\n", rbuf.width(), rbuf.height());
-    fwrite(buf, 1, rbuf.width() * rbuf.height() * 3, fd);
-    fclose(fd);
-
-    delete [] buf;
+    png2grid(4,im);
+    mapnik::save_to_file<mapnik::image_data_32>(im.data(),"demo.png","png");
+    system("open demo.png");
+    //delete [] buf;
     return 0;
 }
 
