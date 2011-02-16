@@ -31,6 +31,7 @@ namespace agg
     typedef unsigned short int16u;
     typedef signed int     int32;
     typedef unsigned int   int32u;
+    typedef int8u grid_value;
 
 
 
@@ -280,7 +281,7 @@ namespace agg
     {
     public:
         /* as low as 1 if gamma == 0.0 */
-        enum { aa_shift = 1 };
+        enum { aa_shift = 8 };
 
         class iterator
         {
@@ -383,7 +384,7 @@ namespace agg
 
 
     //========================================================================
-    // ascii renderer
+    // grid renderer
     template<class Span> class grid_renderer
     {
     public:
@@ -393,7 +394,7 @@ namespace agg
         }
         
         //--------------------------------------------------------------------
-        void clear(unsigned val c)
+        void clear(grid_value c)
         {
             unsigned y;
             for(y = 0; y < m_rbuf->height(); y++)
@@ -403,7 +404,7 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        void pixel(int x, int y, unsigned val c)
+        void pixel(int x, int y, grid_value c)
         {
             if(m_rbuf->inbox(x, y))
             {
@@ -418,14 +419,16 @@ namespace agg
             {
                 return m_span.get(m_rbuf->row(y), x);
             }
-            return 0;//rgba8(0,0,0);
+            return 9999;//rgba8(0,0,0);
         }
 
         //--------------------------------------------------------------------
-        void render(const scanline& sl, unsigned val c)
+        // here
+        void render(const scanline& sl, grid_value c)
         {
             if(sl.y() < 0 || sl.y() >= int(m_rbuf->height()))
             {
+                std::clog << "returning\n";
                 return;
             }
 
@@ -451,6 +454,7 @@ namespace agg
                     num_pix = m_rbuf->width() - x;
                     if(num_pix <= 0) continue;
                 }
+                std::clog << "m_span rendering: covers" << *covers << " c:" << c << "\n";
                 m_span.render(row, x, num_pix, covers, c);
             }
             while(--num_spans);
@@ -683,6 +687,175 @@ namespace agg
     };
     
 
+    class grid_rasterizer
+    {
+    public:
+        enum
+        {
+            aa_shift = scanline::aa_shift,
+            aa_num   = 1 << aa_shift,
+            aa_mask  = aa_num - 1,
+            aa_2num  = aa_num * 2,
+            aa_2mask = aa_2num - 1
+        };
+
+        grid_rasterizer() :
+            m_filling_rule(fill_non_zero)
+        {
+            memcpy(m_gamma, s_default_gamma, sizeof(m_gamma));
+        }
+
+        //--------------------------------------------------------------------
+        void reset() { m_outline.reset(); }
+
+        //--------------------------------------------------------------------
+        void filling_rule(filling_rule_e filling_rule) 
+        { 
+            m_filling_rule = filling_rule; 
+        }
+
+        //--------------------------------------------------------------------
+        void gamma(double g);
+        void gamma(const int8u* g);
+
+        //--------------------------------------------------------------------
+        void move_to(int x, int y) { m_outline.move_to(x, y); }
+        void line_to(int x, int y) { m_outline.line_to(x, y); }
+
+        //--------------------------------------------------------------------
+        void move_to_d(double x, double y) { m_outline.move_to(poly_coord(x), 
+                                                               poly_coord(y)); }
+        void line_to_d(double x, double y) { m_outline.line_to(poly_coord(x), 
+                                                               poly_coord(y)); }
+
+        //--------------------------------------------------------------------
+        int min_x() const { return m_outline.min_x(); }
+        int min_y() const { return m_outline.min_y(); }
+        int max_x() const { return m_outline.max_x(); }
+        int max_y() const { return m_outline.max_y(); }
+
+        //--------------------------------------------------------------------
+        unsigned calculate_alpha(int area) const
+        {
+            
+            int cover = area >> (poly_base_shift*2 + 1 - aa_shift);
+
+            if(cover < 0) cover = -cover;
+            if(m_filling_rule == fill_even_odd)
+            {
+                cover &= aa_2mask;
+                if(cover > aa_num)
+                {
+                    cover = aa_2num - cover;
+                }
+            }
+            if(cover > aa_mask) cover = aa_mask;
+            //std::clog << "calculate_alpha, cover: " << cover << "\n";
+            return cover;
+        }
+
+        //--------------------------------------------------------------------
+        // here
+        template<class Renderer> void render(Renderer& r, 
+                                             /*const rgba8& c,*/
+                                             grid_value c, 
+                                             int dx=0, 
+                                             int dy=0)
+        {
+            const cell* const* cells = m_outline.cells();
+            if(m_outline.num_cells() == 0) {
+                std::clog << "no cells\n";
+                return;
+            }
+
+            int x, y;
+            int cover;
+            int alpha;
+            int area;
+
+            std::clog << "minx: " << m_outline.min_x() << " maxx: " << m_outline.max_x() << "\n";
+            m_scanline.reset(m_outline.min_x(), m_outline.max_x(), dx, dy);
+
+            cover = 0;
+            const cell* cur_cell = *cells++;
+            for(;;)
+            {
+                const cell* start_cell = cur_cell;
+
+                int coord  = cur_cell->packed_coord;
+                x = cur_cell->x;
+                y = cur_cell->y;
+
+                area   = start_cell->area;
+                cover += start_cell->cover;
+
+                //accumulate all start cells
+                while((cur_cell = *cells++) != 0)
+                {
+                    if(cur_cell->packed_coord != coord) break;
+                    area  += cur_cell->area;
+                    cover += cur_cell->cover;
+                }
+
+                if(area)
+                {
+                    alpha = calculate_alpha((cover << (poly_base_shift + 1)) - area);
+                    if(alpha)
+                    {
+                        if(m_scanline.is_ready(y))
+                        {
+                            std::clog << "rendering: " << c << "\n";
+                            r.render(m_scanline, c);
+                            m_scanline.reset_spans();
+                        }
+                        m_scanline.add_cell(x, y, m_gamma[alpha]);
+                    }
+                    x++;
+                }
+
+                if(!cur_cell) break;
+
+                if(cur_cell->x > x)
+                {
+                    alpha = calculate_alpha(cover << (poly_base_shift + 1));
+                    if(alpha)
+                    {
+                        if(m_scanline.is_ready(y))
+                        {
+                            std::clog << "rendering: " << c << "\n";
+                            r.render(m_scanline, c);
+                            m_scanline.reset_spans();
+                        }
+                        m_scanline.add_span(x, y, 
+                                            cur_cell->x - x, 
+                                            m_gamma[alpha]);
+                    }
+                }
+            } 
+        
+            if(m_scanline.num_spans())
+            {
+                std::clog << "yes\n";
+                r.render(m_scanline, c);
+            }
+        }
+
+
+        //--------------------------------------------------------------------
+        bool hit_test(int tx, int ty);
+
+    private:
+        grid_rasterizer(const grid_rasterizer&);
+        const grid_rasterizer& operator = (const grid_rasterizer&);
+
+    private:
+        outline        m_outline;
+        scanline       m_scanline;
+        filling_rule_e m_filling_rule;
+        int8u          m_gamma[256];
+        static const int8u s_default_gamma[256];     
+    };
+    
     //========================================================================
     // Polygon rasterizer that is used to render filled polygons with 
     // high-quality Anti-Aliasing. Internally, by default, the class uses 
@@ -881,26 +1054,42 @@ namespace agg
                            int x,
                            unsigned count, 
                            const unsigned char* covers, 
-                           unsigned val c)
+                           grid_value c)
         {
             unsigned char* p = ptr + x;
-            do { *p++ = c; } while(--count);
+            //unsigned char* p = ptr + (x * 4);
+            do
+            {
+                *p++ = c;
+                //*p++ = c;
+                //*p++ = c;
+                //*p++ = c;
+            }
+            while(--count);
         }
 
         //--------------------------------------------------------------------
         static void hline(unsigned char* ptr, 
                           int x,
                           unsigned count, 
-                          unsigned val c)
+                          grid_value c)
         {
-            unsigned char* p = ptr + x;
-            do { *p++ = c; } while(--count);
+            unsigned char* p = ptr + (x * 4);
+            do
+            {
+                *p++ = c;
+                *p++ = c;
+                *p++ = c;
+                *p++ = c;
+            }
+            while(--count);
         }
 
         //--------------------------------------------------------------------
-        static rgba8 get(unsigned char* ptr, int x)
+        static grid_value get(unsigned char* ptr, int x)
         {
             return ptr[x];
+            
         }
     };
     
