@@ -20,6 +20,7 @@
 #define AGG_INCLUDED
 
 #include <string.h>
+#include <iostream>
 
 namespace agg
 {
@@ -168,10 +169,12 @@ namespace agg
             return x >= 0 && y >= 0 && x < int(m_width) && y < int(m_height);
         }
         
+        /*
         unsigned abs_stride() const 
         { 
             return (m_stride < 0) ? unsigned(-m_stride) : unsigned(m_stride); 
         }
+        */
 
         unsigned char* row(unsigned y) { return m_rows[y];  }
         const unsigned char* row(unsigned y) const { return m_rows[y]; }
@@ -276,7 +279,8 @@ namespace agg
     class scanline
     {
     public:
-        enum { aa_shift = 8 };
+        /* as low as 1 if gamma == 0.0 */
+        enum { aa_shift = 1 };
 
         class iterator
         {
@@ -353,6 +357,7 @@ namespace agg
     //------------------------------------------------------------------------
     inline void scanline::add_cell(int x, int y, unsigned cover)
     {
+        //std::clog << "x: " << x << " y:" << y << "\n";
         x -= m_min_x;
         m_covers[x] = (unsigned char)cover;
         if(x == m_last_x+1)
@@ -377,6 +382,87 @@ namespace agg
     }
 
 
+    //========================================================================
+    // ascii renderer
+    template<class Span> class grid_renderer
+    {
+    public:
+        //--------------------------------------------------------------------
+        grid_renderer(rendering_buffer& rbuf) : m_rbuf(&rbuf)
+        {
+        }
+        
+        //--------------------------------------------------------------------
+        void clear(const rgba8& c)
+        {
+            unsigned y;
+            for(y = 0; y < m_rbuf->height(); y++)
+            {
+                m_span.hline(m_rbuf->row(y), 0, m_rbuf->width(), c);
+            }
+        }
+
+        //--------------------------------------------------------------------
+        void pixel(int x, int y, const rgba8& c)
+        {
+            if(m_rbuf->inbox(x, y))
+            {
+                m_span.hline(m_rbuf->row(y), x, 1, c);
+            }
+        }
+
+        //--------------------------------------------------------------------
+        rgba8 pixel(int x, int y) const
+        {
+            if(m_rbuf->inbox(x, y))
+            {
+                return m_span.get(m_rbuf->row(y), x);
+            }
+            return rgba8(0,0,0);
+        }
+
+        //--------------------------------------------------------------------
+        void render(const scanline& sl, const rgba8& c)
+        {
+            if(sl.y() < 0 || sl.y() >= int(m_rbuf->height()))
+            {
+                return;
+            }
+
+            unsigned num_spans = sl.num_spans();
+            int base_x = sl.base_x();
+            unsigned char* row = m_rbuf->row(sl.y());
+            scanline::iterator span(sl);
+
+            do
+            {
+                int x = span.next() + base_x;
+                const int8u* covers = span.covers();
+                int num_pix = span.num_pix();
+                if(x < 0)
+                {
+                    num_pix += x;
+                    if(num_pix <= 0) continue;
+                    covers -= x;
+                    x = 0;
+                }
+                if(x + num_pix >= int(m_rbuf->width()))
+                {
+                    num_pix = m_rbuf->width() - x;
+                    if(num_pix <= 0) continue;
+                }
+                m_span.render(row, x, num_pix, covers, c);
+            }
+            while(--num_spans);
+        }
+
+        //--------------------------------------------------------------------
+        rendering_buffer& rbuf() { return *m_rbuf; }
+
+    private:
+        rendering_buffer* m_rbuf;
+        Span              m_span;
+    };
 
 
     //========================================================================
@@ -786,6 +872,57 @@ namespace agg
         static const int8u s_default_gamma[256];     
     };
 
+    //========================================================================
+    struct span_grid
+    {
+        //--------------------------------------------------------------------
+        static unsigned mono8(unsigned r, unsigned g, unsigned b)
+        {
+            return (r * 77 + g * 150 + b * 29) >> 8;
+        }
+
+        //--------------------------------------------------------------------
+        static void render(unsigned char* ptr, 
+                           int x,
+                           unsigned count, 
+                           const unsigned char* covers, 
+                           const rgba8& c)
+        {
+            unsigned char* p = ptr + x;
+            unsigned dst = mono8(c.r, c.g, c.b);
+            do
+            {
+                int alpha = (*covers++) * c.a;
+                unsigned src = *p;
+                *p++ = (((dst - src) * alpha) + (src << 16)) >> 16;
+            }
+            while(--count);
+        }
+
+        //--------------------------------------------------------------------
+        static void hline(unsigned char* ptr, 
+                          int x,
+                          unsigned count, 
+                          const rgba8& c)
+        {
+            unsigned char* p = ptr + x;
+            unsigned v = mono8(c.r, c.g, c.b);
+            do { *p++ = v; } while(--count);
+        }
+
+        //--------------------------------------------------------------------
+        static rgba8 get(unsigned char* ptr, int x)
+        {
+            unsigned rgb = ptr[x];
+            rgba8 c;
+            c.r = rgb; 
+            c.g = rgb; 
+            c.b = rgb;
+            c.a = 255;
+            return c;
+        }
+    };
+    
 
     //========================================================================
     struct span_mono8

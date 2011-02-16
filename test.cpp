@@ -85,35 +85,53 @@ int main()
     mapnik::image_32 im(width,height);
     agg::rendering_buffer rbuf(im.raw_data(),width,height, width * 4);
 
-    // Create the renderer and the rasterizer
-    agg::renderer<agg::span_rgba32> ren(rbuf);
-    agg::rasterizer ras;
+    mapnik::image_32 im2(width,height);
+    agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width * 4);
 
+    // Create the renderer and the rasterizer
+    // normal
+    agg::renderer<agg::span_rgba32> ren(rbuf);
+    
+    // ascii
+    agg::grid_renderer<agg::span_rgba32> ren_grid(rbuf2);
+
+    agg::rasterizer ras;
     // Setup the rasterizer
     ras.gamma(0.0);
     ras.filling_rule(agg::fill_even_odd);
 
     ren.clear(agg::rgba8(0, 255, 255));
+    ren_grid.clear(agg::rgba8(0, 255, 255));
+
+
+    // Setup the rasterizer
+    ras.gamma(0.0);
+    ras.filling_rule(agg::fill_even_odd);
 
     ras.move_to_d(50,50);
     ras.line_to_d(50,100);
     ras.line_to_d(100,100);
     ras.line_to_d(100,50);
     ras.render(ren, agg::rgba8(2,125,0,255));
+    ras.render(ren_grid, agg::rgba8(2,125,0,255));
 
     draw_ellipse(ras, 120,120,20,70);
-
     ras.render(ren, agg::rgba8(4,0,125,255));
+    ras.render(ren_grid, agg::rgba8(4,0,125,255));
 
     ras.move_to_d(200,200);
     ras.line_to_d(200,300);
     ras.line_to_d(300,300);
     ras.line_to_d(300,200);
     ras.render(ren, agg::rgba8(255,0,0,255));
+    ras.render(ren_grid, agg::rgba8(255,0,0,255));
 
-    png2grid(4,im);
+    //png2grid(4,im);
     mapnik::save_to_file<mapnik::image_data_32>(im.data(),"demo.png","png");
     system("open demo.png");
+
+    //mapnik::save_to_file<mapnik::image_data_32>(im2.data(),"demo2.png","png");
+    //system("open demo2.png");
     //delete [] buf;
     return 0;
 }
