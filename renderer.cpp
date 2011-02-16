@@ -365,9 +365,6 @@ namespace agg
             add_cur_cell();
             m_cur_cell.set(x, y, 0, 0);
         }
-        else {
-            std::clog << "nope\n";
-        }
     }
 
 

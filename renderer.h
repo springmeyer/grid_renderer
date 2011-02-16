@@ -428,7 +428,7 @@ namespace agg
         {
             if(sl.y() < 0 || sl.y() >= int(m_rbuf->height()))
             {
-                std::clog << "returning\n";
+                //std::clog << "returning\n";
                 return;
             }
 
@@ -454,7 +454,7 @@ namespace agg
                     num_pix = m_rbuf->width() - x;
                     if(num_pix <= 0) continue;
                 }
-                std::clog << "m_span rendering: covers" << *covers << " c:" << c << "\n";
+                //std::clog << "m_span rendering: covers" << *covers << " c:" << c << "\n";
                 m_span.render(row, x, num_pix, covers, c);
             }
             while(--num_spans);
@@ -773,7 +773,7 @@ namespace agg
             int alpha;
             int area;
 
-            std::clog << "minx: " << m_outline.min_x() << " maxx: " << m_outline.max_x() << "\n";
+            //std::clog << "minx: " << m_outline.min_x() << " maxx: " << m_outline.max_x() << "\n";
             m_scanline.reset(m_outline.min_x(), m_outline.max_x(), dx, dy);
 
             cover = 0;
@@ -804,7 +804,7 @@ namespace agg
                     {
                         if(m_scanline.is_ready(y))
                         {
-                            std::clog << "rendering: " << c << "\n";
+                            //std::clog << "rendering: " << c << "\n";
                             r.render(m_scanline, c);
                             m_scanline.reset_spans();
                         }
@@ -822,7 +822,7 @@ namespace agg
                     {
                         if(m_scanline.is_ready(y))
                         {
-                            std::clog << "rendering: " << c << "\n";
+                            //std::clog << "rendering: " << c << "\n";
                             r.render(m_scanline, c);
                             m_scanline.reset_spans();
                         }
@@ -835,7 +835,7 @@ namespace agg
         
             if(m_scanline.num_spans())
             {
-                std::clog << "yes\n";
+                //std::clog << "yes\n";
                 r.render(m_scanline, c);
             }
         }
