@@ -108,19 +108,26 @@ void int2grid(int step, mapnik::image_32 im) {
 
 void buf2grid(int step, agg::rendering_buffer& buf) {
     std::ostringstream s("");
+    s << "{ \"grid\":\n[\n";
     for (unsigned y = 0; y < buf.height(); y=y+step)
     {
         unsigned char* row = buf.row(y);
+        s << "\"";
         for (unsigned x = 0; x < buf.width(); x=x+step)
         {
             //s << "'" << (int)row[x] << "'";
-            s << (int)row[x];
+            int val = (int)row[x];
+            if (val == 0)
+              s << " ";
+            else 
+              s << val;
             //s << (int)row[x*4];
             //s << row[x];
         }
-        s << "\n";
+        s << "\",\n";
     }
-    std::clog << "grid: " << s.str() << "\n";
+    s << "]\n}";
+    std::clog << s.str() << "\n";
 }
 
 int main()
