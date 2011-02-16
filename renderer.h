@@ -393,7 +393,7 @@ namespace agg
         }
         
         //--------------------------------------------------------------------
-        void clear(const rgba8& c)
+        void clear(unsigned val c)
         {
             unsigned y;
             for(y = 0; y < m_rbuf->height(); y++)
@@ -403,7 +403,7 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        void pixel(int x, int y, const rgba8& c)
+        void pixel(int x, int y, unsigned val c)
         {
             if(m_rbuf->inbox(x, y))
             {
@@ -412,17 +412,17 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        rgba8 pixel(int x, int y) const
+        unsigned pixel(int x, int y) const
         {
             if(m_rbuf->inbox(x, y))
             {
                 return m_span.get(m_rbuf->row(y), x);
             }
-            return rgba8(0,0,0);
+            return 0;//rgba8(0,0,0);
         }
 
         //--------------------------------------------------------------------
-        void render(const scanline& sl, const rgba8& c)
+        void render(const scanline& sl, unsigned val c)
         {
             if(sl.y() < 0 || sl.y() >= int(m_rbuf->height()))
             {
@@ -875,51 +875,32 @@ namespace agg
     //========================================================================
     struct span_grid
     {
-        //--------------------------------------------------------------------
-        static unsigned mono8(unsigned r, unsigned g, unsigned b)
-        {
-            return (r * 77 + g * 150 + b * 29) >> 8;
-        }
 
         //--------------------------------------------------------------------
         static void render(unsigned char* ptr, 
                            int x,
                            unsigned count, 
                            const unsigned char* covers, 
-                           const rgba8& c)
+                           unsigned val c)
         {
             unsigned char* p = ptr + x;
-            unsigned dst = mono8(c.r, c.g, c.b);
-            do
-            {
-                int alpha = (*covers++) * c.a;
-                unsigned src = *p;
-                *p++ = (((dst - src) * alpha) + (src << 16)) >> 16;
-            }
-            while(--count);
+            do { *p++ = c; } while(--count);
         }
 
         //--------------------------------------------------------------------
         static void hline(unsigned char* ptr, 
                           int x,
                           unsigned count, 
-                          const rgba8& c)
+                          unsigned val c)
         {
             unsigned char* p = ptr + x;
-            unsigned v = mono8(c.r, c.g, c.b);
-            do { *p++ = v; } while(--count);
+            do { *p++ = c; } while(--count);
         }
 
         //--------------------------------------------------------------------
         static rgba8 get(unsigned char* ptr, int x)
         {
-            unsigned rgb = ptr[x];
-            rgba8 c;
-            c.r = rgb; 
-            c.g = rgb; 
-            c.b = rgb;
-            c.a = 255;
-            return c;
+            return ptr[x];
         }
     };
     
