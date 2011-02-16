@@ -167,17 +167,21 @@ int main()
 */
     // grid
     
-    mapnik::image_32 im2(width,height);
+    //mapnik::image_32 im2(width,height);
     //std::clog << "size int: " << sizeof(unsigned int) << "\n";
     
-    agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width);
+    //agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width);
     //agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width*4);
+
+    unsigned char* buf = new unsigned char[width * height * 3];
+    //std::clog << sizeof(unsigned char) << "\n";
+    agg::rendering_buffer rbuf2(buf, width, height, width * 3);
 
     agg::grid_renderer<agg::span_grid> ren_grid(rbuf2);
     agg::grid_rasterizer ras_grid;
 
     ras_grid.gamma(0.0);
-    ras_grid.filling_rule(agg::fill_even_odd);
+    //ras_grid.filling_rule(agg::fill_even_odd);
 
     ren_grid.clear(0);
 
@@ -199,8 +203,9 @@ int main()
     //png2grid(4,im);
     //int2grid(4,im2);
     buf2grid(4,rbuf2);
-    mapnik::save_to_file<mapnik::image_data_32>(im2.data(),"demo2.png","png");
-    system("open demo2.png");
+    delete buf;
+    //mapnik::save_to_file<mapnik::image_data_32>(im2.data(),"demo2.png","png");
+    //system("open demo2.png");
 
 
 
