@@ -32,6 +32,7 @@ namespace agg
     typedef signed int     int32;
     typedef unsigned int   int32u;
     typedef int8u grid_value;
+    typedef unsigned int grid_value2;
 
 
 
@@ -92,6 +93,57 @@ namespace agg
     };
 
 
+    class grid_rendering_buffer
+    {
+    public:
+        ~grid_rendering_buffer();
+
+        //-----------------------------------------Initialization
+        grid_rendering_buffer(grid_value2* buf,
+                         unsigned width, 
+                         unsigned height,
+                         int      stride);
+
+        //-----------------------------------------Initialization
+        void attach(grid_value2* buf,
+                    unsigned width, 
+                    unsigned height,
+                    int      stride);
+
+        //-----------------------------------------Acessors
+        const grid_value2* buf()    const { return m_buf;    }
+        unsigned             width()  const { return m_width;  }
+        unsigned             height() const { return m_height; }
+        int                  stride() const { return m_stride; }
+
+        bool inbox(int x, int y) const
+        {
+            return x >= 0 && y >= 0 && x < int(m_width) && y < int(m_height);
+        }
+        
+        /*
+        unsigned abs_stride() const 
+        { 
+            return (m_stride < 0) ? unsigned(-m_stride) : unsigned(m_stride); 
+        }
+        */
+
+        grid_value2* row(unsigned y) { return m_rows[y];  }
+        const grid_value2* row(unsigned y) const { return m_rows[y]; }
+        
+    private:
+        grid_rendering_buffer(const grid_rendering_buffer&);
+        const grid_rendering_buffer& operator = (const grid_rendering_buffer&);
+
+    private:
+        grid_value2*  m_buf;        // Pointer to renrdering buffer
+        grid_value2** m_rows;       // Pointers to each row of the buffer
+        unsigned        m_width;      // Width in pixels
+        unsigned        m_height;     // Height in pixels
+        int             m_stride;     // Number of bytes per row. Can be < 0
+        unsigned        m_max_height; // Maximal current height
+    };
+    
     //========================================================================
     // Rendering buffer wrapper. This class does not know anything about 
     // memory organizations, all it does it keeps an array of pointers 
@@ -389,7 +441,7 @@ namespace agg
     {
     public:
         //--------------------------------------------------------------------
-        grid_renderer(rendering_buffer& rbuf) : m_rbuf(&rbuf)
+        grid_renderer(grid_rendering_buffer& rbuf) : m_rbuf(&rbuf)
         {
         }
         
@@ -434,7 +486,7 @@ namespace agg
 
             unsigned num_spans = sl.num_spans();
             int base_x = sl.base_x();
-            unsigned char* row = m_rbuf->row(sl.y());
+            grid_value2* row = m_rbuf->row(sl.y());
             scanline::iterator span(sl);
 
             do
@@ -461,10 +513,10 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        rendering_buffer& rbuf() { return *m_rbuf; }
+        grid_rendering_buffer& rbuf() { return *m_rbuf; }
 
     private:
-        rendering_buffer* m_rbuf;
+        grid_rendering_buffer* m_rbuf;
         Span              m_span;
     };
 
@@ -1046,47 +1098,41 @@ namespace agg
     };
 
     //========================================================================
+    // here
     struct span_grid
     {
 
         //--------------------------------------------------------------------
-        static void render(unsigned char* ptr, 
+        static void render(grid_value2* ptr, 
                            int x,
                            unsigned count, 
                            const unsigned char* covers, 
                            grid_value c)
         {
-            unsigned char* p = ptr + x;
-            //unsigned char* p = ptr + (x * 4);
+            grid_value2* p = ptr + x;
             do
             {
                 *p++ = c;
-                //*p++ = c;
-                //*p++ = c;
-                //*p++ = c;
             }
             while(--count);
         }
 
         //--------------------------------------------------------------------
-        static void hline(unsigned char* ptr, 
+        static void hline(grid_value2* ptr, 
                           int x,
                           unsigned count, 
                           grid_value c)
         {
-            unsigned char* p = ptr + (x * 4);
+            grid_value2* p = ptr + x;
             do
             {
-                *p++ = c;
-                *p++ = c;
-                *p++ = c;
                 *p++ = c;
             }
             while(--count);
         }
 
         //--------------------------------------------------------------------
-        static grid_value get(unsigned char* ptr, int x)
+        static grid_value get(grid_value2* ptr, int x)
         {
             return ptr[x];
             

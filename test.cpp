@@ -4,8 +4,9 @@
 #include "renderer.h"
 
 #include <iostream>
-#include <mapnik/graphics.hpp>
-#include <mapnik/image_util.hpp>
+#include <sstream>
+//#include <mapnik/graphics.hpp>
+//#include <mapnik/image_util.hpp>
 
 enum
 {
@@ -73,6 +74,7 @@ void draw_line(agg::rasterizer& ras,
     ras.line_to_d(x1 + dx,  y1 - dy);
 }
 
+/*
 void png2grid(int step, mapnik::image_32 im) {
     mapnik::image_data_32 image = im.data();
     std::ostringstream s("");
@@ -106,23 +108,26 @@ void int2grid(int step, mapnik::image_32 im) {
     std::clog << "grid: " << s.str() << "\n";
 }
 
-void buf2grid(int step, agg::rendering_buffer& buf) {
+*/
+void buf2grid(int step, agg::grid_rendering_buffer& buf) {
     std::ostringstream s("");
     s << "{ \"grid\":\n[\n";
     for (unsigned y = 0; y < buf.height(); y=y+step)
     {
-        unsigned char* row = buf.row(y);
+        agg::grid_value2* row = buf.row(y);
         s << "\"";
         for (unsigned x = 0; x < buf.width(); x=x+step)
         {
             //s << "'" << (int)row[x] << "'";
+            /*
             int val = (int)row[x];
             if (val == 0)
               s << " ";
             else 
               s << val;
+            */
             //s << (int)row[x*4];
-            //s << row[x];
+            s << row[x];
         }
         s << "\",\n";
     }
@@ -173,9 +178,14 @@ int main()
     //agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width);
     //agg::rendering_buffer rbuf2(im2.raw_data(),width,height, width*4);
 
-    unsigned char* buf = new unsigned char[width * height * 3];
+    //unsigned char* buf = new unsigned char[width * height];
     //std::clog << sizeof(unsigned char) << "\n";
-    agg::rendering_buffer rbuf2(buf, width, height, width * 3);
+    //agg::rendering_buffer rbuf2(buf, width, height, width);
+
+
+    unsigned int* buf = new unsigned int[width * height];
+    //std::clog << sizeof(unsigned char) << "\n";
+    agg::grid_rendering_buffer rbuf2(buf, width, height, width);
 
     agg::grid_renderer<agg::span_grid> ren_grid(rbuf2);
     agg::grid_rasterizer ras_grid;
@@ -189,20 +199,20 @@ int main()
     ras_grid.line_to_d(50,100);
     ras_grid.line_to_d(100,100);
     ras_grid.line_to_d(100,50);
-    ras_grid.render(ren_grid, 2);
+    ras_grid.render(ren_grid, 1);
 
     draw_ellipse_grid(ras_grid, 120,120,20,70);
-    ras_grid.render(ren_grid, 3);
+    ras_grid.render(ren_grid, 2);
 
     ras_grid.move_to_d(200,200);
     ras_grid.line_to_d(200,300);
     ras_grid.line_to_d(300,300);
     ras_grid.line_to_d(300,200);
-    ras_grid.render(ren_grid, 4);
+    ras_grid.render(ren_grid, 3);
 
     //png2grid(4,im);
     //int2grid(4,im2);
-    buf2grid(4,rbuf2);
+    //buf2grid(2,rbuf2);
     delete buf;
     //mapnik::save_to_file<mapnik::image_data_32>(im2.data(),"demo2.png","png");
     //system("open demo2.png");
