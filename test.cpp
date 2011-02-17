@@ -7,6 +7,8 @@
 #include <sstream>
 //#include <mapnik/graphics.hpp>
 //#include <mapnik/image_util.hpp>
+//#include <mapnik/value.hpp>
+//#include <unicode/unistr.h>
 
 enum
 {
@@ -111,7 +113,13 @@ void int2grid(int step, mapnik::image_32 im) {
 */
 void buf2grid(int step, agg::grid_rendering_buffer& buf) {
     std::ostringstream s("");
+    //unsigned int length = 256 / step;
+    //unsigned int len = length * (length + 3) + 1;
+
+    //UnicodeString::UnicodeString str(len, 0, len);
     s << "{ \"grid\":\n[\n";
+    //int32_t index = 0;
+    //str.setCharAt(index++, (UChar)'[');
     for (unsigned y = 0; y < buf.height(); y=y+step)
     {
         agg::grid_value2* row = buf.row(y);
@@ -128,10 +136,13 @@ void buf2grid(int step, agg::grid_rendering_buffer& buf) {
             */
             //s << (int)row[x*4];
             s << row[x];
+            //str.setCharAt(index++, (UChar)'a');
         }
         s << "\",\n";
     }
     s << "]\n}";
+    //std::string buffer;
+    //mapnik::to_utf8(str,buffer);
     std::clog << s.str() << "\n";
 }
 
@@ -212,9 +223,9 @@ int main()
 
     //png2grid(4,im);
     //int2grid(4,im2);
-    //buf2grid(2,rbuf2);
+    buf2grid(4,rbuf2);
     delete buf;
-    //mapnik::save_to_file<mapnik::image_data_32>(im2.data(),"demo2.png","png");
+    //mapnik::save_to_file<mapnik::image_data_32>(buf,"demo2.png","png");
     //system("open demo2.png");
 
 
