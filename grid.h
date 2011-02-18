@@ -9,7 +9,8 @@
 namespace agg
 {
 
-    typedef unsigned int grid_value;
+    typedef unsigned char grid_value;
+    //typedef unsigned int grid_value;
 
     class grid_rendering_buffer
     {
@@ -383,7 +384,6 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        // here
         template<class Renderer> void render(Renderer& r, 
                                              grid_value c, 
                                              int dx=0, 
@@ -530,7 +530,6 @@ namespace agg
     };
 
     //========================================================================
-    // here
     struct span_grid
     {
 
