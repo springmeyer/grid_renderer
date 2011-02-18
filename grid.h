@@ -9,6 +9,8 @@
 namespace agg
 {
 
+    typedef unsigned int grid_value;
+
     class grid_rendering_buffer
     {
     public:
@@ -171,6 +173,122 @@ namespace agg
             aa_2mask = aa_2num - 1
         };
 
+        //---------------------------------------------------------path_commands_e
+        enum path_commands_e
+        {
+            path_cmd_stop     = 0,        //----path_cmd_stop    
+            path_cmd_move_to  = 1,        //----path_cmd_move_to 
+            path_cmd_line_to  = 2,        //----path_cmd_line_to 
+            path_cmd_curve3   = 3,        //----path_cmd_curve3  
+            path_cmd_curve4   = 4,        //----path_cmd_curve4  
+            path_cmd_curveN   = 5,        //----path_cmd_curveN
+            path_cmd_catrom   = 6,        //----path_cmd_catrom
+            path_cmd_ubspline = 7,        //----path_cmd_ubspline
+            path_cmd_end_poly = 0x0F,     //----path_cmd_end_poly
+            path_cmd_mask     = 0x0F      //----path_cmd_mask    
+        };
+
+        //------------------------------------------------------------path_flags_e
+        enum path_flags_e
+        {
+            path_flags_none  = 0,         //----path_flags_none 
+            path_flags_ccw   = 0x10,      //----path_flags_ccw  
+            path_flags_cw    = 0x20,      //----path_flags_cw   
+            path_flags_close = 0x40,      //----path_flags_close
+            path_flags_mask  = 0xF0       //----path_flags_mask 
+        };
+
+        //---------------------------------------------------------------is_vertex
+        inline bool is_vertex(unsigned c)
+        {
+            return c >= path_cmd_move_to && c < path_cmd_end_poly;
+        }
+    
+        //--------------------------------------------------------------is_drawing
+        inline bool is_drawing(unsigned c)
+        {
+            return c >= path_cmd_line_to && c < path_cmd_end_poly;
+        }
+    
+        //-----------------------------------------------------------------is_stop
+        inline bool is_stop(unsigned c)
+        { 
+            return c == path_cmd_stop;
+        }
+    
+        //--------------------------------------------------------------is_move_to
+        inline bool is_move_to(unsigned c)
+        {
+            return c == path_cmd_move_to;
+        }
+    
+        //--------------------------------------------------------------is_line_to
+        inline bool is_line_to(unsigned c)
+        {
+            return c == path_cmd_line_to;
+        }
+    
+        //----------------------------------------------------------------is_curve
+        inline bool is_curve(unsigned c)
+        {
+            return c == path_cmd_curve3 || c == path_cmd_curve4;
+        }
+    
+        //---------------------------------------------------------------is_curve3
+        inline bool is_curve3(unsigned c)
+        {
+            return c == path_cmd_curve3;
+        }
+    
+        //---------------------------------------------------------------is_curve4
+        inline bool is_curve4(unsigned c)
+        {
+            return c == path_cmd_curve4;
+        }
+    
+        //-------------------------------------------------------------is_end_poly
+        inline bool is_end_poly(unsigned c)
+        {
+            return (c & path_cmd_mask) == path_cmd_end_poly;
+        }
+    
+        //----------------------------------------------------------------is_close
+        inline bool is_close(unsigned c)
+        {
+            return (c & ~(path_flags_cw | path_flags_ccw)) ==
+                   (path_cmd_end_poly | path_flags_close); 
+        }
+    
+        //------------------------------------------------------------is_next_poly
+        inline bool is_next_poly(unsigned c)
+        {
+            return is_stop(c) || is_move_to(c) || is_end_poly(c);
+        }
+    
+        //-------------------------------------------------------------------is_cw
+        inline bool is_cw(unsigned c)
+        {
+            return (c & path_flags_cw) != 0;
+        }
+    
+        //------------------------------------------------------------------is_ccw
+        inline bool is_ccw(unsigned c)
+        {
+            return (c & path_flags_ccw) != 0;
+        }
+    
+        //-------------------------------------------------------------is_oriented
+        inline bool is_oriented(unsigned c)
+        {
+            return (c & (path_flags_cw | path_flags_ccw)) != 0; 
+        }
+    
+        //---------------------------------------------------------------is_closed
+        inline bool is_closed(unsigned c)
+        {
+            return (c & path_flags_close) != 0; 
+        }
+    
         grid_rasterizer() :
             m_filling_rule(fill_non_zero) { }
 
@@ -193,6 +311,51 @@ namespace agg
                                                                poly_coord(y)); }
         void line_to_d(double x, double y) { m_outline.line_to(poly_coord(x), 
                                                                poly_coord(y)); }
+
+        /*void close_polygon()
+        {
+            if(m_status == status_line_to)
+            {
+                m_clipper.line_to(m_outline, m_start_x, m_start_y);
+                m_status = status_closed;
+            }
+        }*/
+
+        void add_vertex(double x, double y, unsigned cmd)
+        {
+            if(is_move_to(cmd)) 
+            {
+                //std::clog << "move_to x: " << x << " y: " << y << "\n";
+                move_to_d(x, y);
+            }
+            else 
+            if(is_vertex(cmd))
+            {
+                //std::clog << "line_to x: " << x << " y: " << y << "\n";
+                line_to_d(x, y);
+            }
+            /*else
+            if(is_close(cmd))
+            {
+                m_clipper.line_to(m_outline, m_start_x, m_start_y);
+            }*/
+        }
+
+        //-------------------------------------------------------------------
+        template<class VertexSource>
+        void add_path(VertexSource& vs, unsigned path_id=0)
+        {
+            double x;
+            double y;
+
+            unsigned cmd;
+            vs.rewind(path_id);
+            //if(m_outline.sorted()) reset();
+            while(!is_stop(cmd = vs.vertex(&x, &y)))
+            {
+                add_vertex(x, y, cmd);
+            }
+        }
 
         //--------------------------------------------------------------------
         int min_x() const { return m_outline.min_x(); }

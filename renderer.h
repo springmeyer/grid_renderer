@@ -20,7 +20,7 @@
 #define AGG_INCLUDED
 
 #include <string.h>
-#include <iostream>
+//#include <iostream>
 
 namespace agg
 {
@@ -31,7 +31,6 @@ namespace agg
     typedef unsigned short int16u;
     typedef signed int     int32;
     typedef unsigned int   int32u;
-    typedef int32u grid_value;
 
 
     //========================================================================
